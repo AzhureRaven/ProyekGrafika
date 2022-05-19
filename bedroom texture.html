@@ -10,12 +10,12 @@
 	Camera Sensitivity: <input type="number" name="" id="camspd" min="1" max="10" value="5">
 	<br>
 	Updown: <input type="number" name="" id="updown" value="20">
-	Jarak: <input type="number" name="" id="jarak" value="23">
+	Jarak: <input type="number" name="" id="jarak" value="30">
 	<br>
 	Lampu:
-	x <input type="number" name="" id="x" value="1">
-	y <input type="number" name="" id="y" value="12">
-	z <input type="number" name="" id="z" value="6">
+	x <input type="number" name="" id="x" value="0">
+	y <input type="number" name="" id="y" value="16">
+	z <input type="number" name="" id="z" value="0">
 	
 <script src='gl-matrix.js'></script>
 <script src='webgl-obj-loader.js'></script>
@@ -74,7 +74,8 @@ fs_text=`#version 300 es
 <!-- albedo -->
 <script id="toy_car_albedo" src='./toy_car/toy_car_albedo.js'></script>
 <script id="ventilator_albedo" src='./ceiling_fan/ventilator_albedo.js'></script>
-	
+<script id="room_albedo" src='./bedroom/room_albedo.js'></script>	
+
 <script>
 
 	objStr = room;
@@ -211,7 +212,7 @@ fs_text=`#version 300 es
 	kecepatan = -0.3;
 	batas = 12;
 
-	var gltex0,gltex1;
+	var gltex0,gltex1,gltex2;
 	//toy car
 	img0 = new Image(); 
 	img0.onload=function() { gltex0=loadTexture(img0);}; 
@@ -222,6 +223,10 @@ fs_text=`#version 300 es
 	img1.onload=function() { gltex1=loadTexture(img1);}; 
 	img1.src=ventilator_albedo_map;
 
+	//room
+	img2 = new Image(); 
+	img2.onload=function() { gltex2=loadTexture(img2);}; 
+	img2.src=room_albedo_map;
 	function anim(){
 		jarak = parseInt(document.getElementById('jarak').value);
 		updown = parseInt(document.getElementById('updown').value);
@@ -239,12 +244,14 @@ fs_text=`#version 300 es
 		camy = parseInt(document.getElementById('y').value)
 		camz = parseInt(document.getElementById('z').value)
 		setLight(camx,camy,camz,'lampos')
-		
+
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		
 		//room
 		mat4.identity(matgab);
 		//matrix start
+		mat4.translate(matgab, matgab,[3,-0.5,3]);
+		mat4.scale(matgab, matgab, [0.25,0.25,0.25]);
 		//matrix end
 		mat4.invert(matnorm, matgab);    
 		mat4.transpose(matnorm, matnorm);  
@@ -262,6 +269,7 @@ fs_text=`#version 300 es
 		loadMeshBuffer(mesh.vertexBuffer,'koordinat_vertex')
 		//elemen
 		loadMeshElement(mesh.indexBuffer)
+		gl.bindTexture(gl.TEXTURE_2D, gltex2);
 		gl.drawElements(gl.TRIANGLES, mesh.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0); //mesh mintae unsigned_short, yg lain bikin aneh bentuknya
 		
 		
@@ -276,7 +284,7 @@ fs_text=`#version 300 es
 		mat4.identity(matgab);
 		//matrix start
 		mat4.translate(matgab, matgab,[0,0,gerak]);
-		mat4.translate(matgab, matgab,[7,0.1,8]);
+		mat4.translate(matgab, matgab,[9,0.1,4]);
 		mat4.scale(matgab, matgab, [0.001,0.001,0.001]);
 		//matrix end //translate after scale
 		mat4.invert(matnorm, matgab);    
@@ -306,7 +314,7 @@ fs_text=`#version 300 es
 		mat4.identity(matgab);
 		//matrix start
 		mat4.rotateY(matgab, matgab, rad);
-		mat4.translate(matgab, matgab,[0,12.5,0]);
+		mat4.translate(matgab, matgab,[0,16,0]);
 		mat4.rotateX(matgab, matgab, -Math.PI*90/180.0);
 		mat4.scale(matgab, matgab, [5,5,5]);
 		//matrix end

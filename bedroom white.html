@@ -4,9 +4,18 @@
 	</canvas>
 	<br>
 	<br>
-	Camera Sensitivity: <input type="number" name="" id="camspd" min="1" max="10" value="5">
 	<button onclick="moveCar()">Move Toy Car</button>
 	<button onclick="moveFan()" id="btnFan">Turn On Fan</button>
+	<br>
+	Camera Sensitivity: <input type="number" name="" id="camspd" min="1" max="10" value="5">
+	<br>
+	Updown: <input type="number" name="" id="updown" value="20">
+	Jarak: <input type="number" name="" id="jarak" value="30">
+	<br>
+	Lampu:
+	x <input type="number" name="" id="x" value="0">
+	y <input type="number" name="" id="y" value="16">
+	z <input type="number" name="" id="z" value="0">
 	
 <script src='gl-matrix.js'></script>
 <script src='webgl-obj-loader.js'></script>
@@ -76,8 +85,6 @@ fs_text=`#version 300 es
 	
 <script>
 
-	objStr = room;
-	
 	layar = document.getElementById('layar');
 	gl = layar.getContext('webgl2');
 	
@@ -187,7 +194,10 @@ fs_text=`#version 300 es
 	gerak = 0;
 	kecepatan = -0.3;
 	batas = 12;
+
 	function anim(){
+		jarak = parseInt(document.getElementById('jarak').value);
+		updown = parseInt(document.getElementById('updown').value);
 		cameraSpeed = parseInt(document.getElementById('camspd').value);
 		sudutc %= 360;
         radc = sudutc/360 * 2 * Math.PI;
@@ -198,17 +208,18 @@ fs_text=`#version 300 es
 		mat4.perspective(proyeksi, Math.PI*60/180, 1, 0.01, 10000);
 		mat4.mul(kamera, lookat, kamera);
 		mat4.mul(kamera, proyeksi, kamera);
-		setLight(0,13,0,'lampos')
-		
-				
-		
+		camx = parseInt(document.getElementById('x').value)
+		camy = parseInt(document.getElementById('y').value)
+		camz = parseInt(document.getElementById('z').value)
+		setLight(camx,camy,camz,'lampos')
 
-		
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		
 		//room
 		mat4.identity(matgab);
 		//matrix start
+		mat4.translate(matgab, matgab,[3,-0.5,3]);
+		mat4.scale(matgab, matgab, [0.25,0.25,0.25]);
 		//matrix end
 		mat4.invert(matnorm, matgab);    
 		mat4.transpose(matnorm, matnorm);  
@@ -220,6 +231,8 @@ fs_text=`#version 300 es
 		loadMeshBuffer(mesh.normalBuffer,'normal_vertex')
 		//warna
 		setMeshColor(mesh.vertexBuffer,'warna_vertex')
+		//texture
+		loadMeshBuffer(mesh.textureBuffer,'koordinat_texture')
 		//vertex
 		loadMeshBuffer(mesh.vertexBuffer,'koordinat_vertex')
 		//elemen
@@ -238,7 +251,7 @@ fs_text=`#version 300 es
 		mat4.identity(matgab);
 		//matrix start
 		mat4.translate(matgab, matgab,[0,0,gerak]);
-		mat4.translate(matgab, matgab,[7,0.1,8]);
+		mat4.translate(matgab, matgab,[9,0.1,4]);
 		mat4.scale(matgab, matgab, [0.001,0.001,0.001]);
 		//matrix end //translate after scale
 		mat4.invert(matnorm, matgab);    
@@ -251,6 +264,8 @@ fs_text=`#version 300 es
 		loadMeshBuffer(meshCar.normalBuffer,'normal_vertex')
 		//warna
 		setMeshColor(meshCar.vertexBuffer,'warna_vertex')
+		//texture
+		loadMeshBuffer(meshCar.textureBuffer,'koordinat_texture')
 		//vertex
 		loadMeshBuffer(meshCar.vertexBuffer,'koordinat_vertex')
 		//elemen
@@ -265,7 +280,7 @@ fs_text=`#version 300 es
 		mat4.identity(matgab);
 		//matrix start
 		mat4.rotateY(matgab, matgab, rad);
-		mat4.translate(matgab, matgab,[0,12.5,0]);
+		mat4.translate(matgab, matgab,[0,16,0]);
 		mat4.rotateX(matgab, matgab, -Math.PI*90/180.0);
 		mat4.scale(matgab, matgab, [5,5,5]);
 		//matrix end
@@ -279,6 +294,8 @@ fs_text=`#version 300 es
 		loadMeshBuffer(meshFan.normalBuffer,'normal_vertex')
 		//warna
 		setMeshColor(meshFan.vertexBuffer,'warna_vertex')
+		//texture
+		loadMeshBuffer(meshFan.textureBuffer,'koordinat_texture')
 		//vertex
 		loadMeshBuffer(meshFan.vertexBuffer,'koordinat_vertex')
 		//elemen
@@ -287,8 +304,7 @@ fs_text=`#version 300 es
 		
 		requestAnimationFrame(anim, layar);
 		}
-	anim();
-
+		anim(); 
 	
 </script>
 <script>

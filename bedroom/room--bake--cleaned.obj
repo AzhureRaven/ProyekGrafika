@@ -1,4 +1,4 @@
-room = `# Blender v3.1.2 OBJ File: 'room--bake--cleaned.blend'
+# Blender v3.1.2 OBJ File: 'room--bake--cleaned.blend'
 # www.blender.org
 mtllib room--bake--cleaned.mtl
 o bedroom.merged_Plane-tex
@@ -7664,4 +7664,3 @@ f 1048/3780/6 460/3781/6 1040/3779/6
 f 460/3781/6 458/3782/6 1040/3779/6
 f 1046/3783/6 460/3781/6 1048/3780/6
 f 1037/3784/6 1040/3779/6 458/3782/6
-`
