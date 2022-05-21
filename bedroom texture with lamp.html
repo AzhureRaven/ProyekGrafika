@@ -1,0 +1,423 @@
+<html>
+<body>
+	<canvas id='layar' width='500' height='500' onmousemove='camera(event)' onmousedown="canMove()" onmouseup="noMove()">
+	</canvas>
+	<br>
+	<br>
+	<button onclick="moveCar()">Move Toy Car</button>
+	<button onclick="moveFan()" id="btnFan">Turn On Fan</button>
+	<br>
+	Camera Sensitivity: <input type="number" name="" id="camspd" min="1" max="10" value="5">
+	<br>
+	Updown: <input type="number" name="" id="updown" value="20">
+	Jarak: <input type="number" name="" id="jarak" value="30">
+	<br>
+	Lampu:
+	x <input type="number" name="" id="x" value="0">
+	y <input type="number" name="" id="y" value="16">
+	z <input type="number" name="" id="z" value="0">
+	Light: <input type="number" name="" id="lamp" min="0" max="1" value="0">
+	
+<script src='gl-matrix.js'></script>
+<script src='webgl-obj-loader.js'></script>
+<script src='shell_albedo.js'></script>
+<script>
+vs_text=`#version 300 es
+	precision mediump float;
+	in vec4 koordinat_vertex;
+	in vec4 warna_vertex;
+	in vec4 normal_vertex;
+	out vec4 normgrad;
+	out vec4 posgrad;
+	uniform mat4 matx; // matrix gabungan benda dan kamera
+	uniform mat4 matn; // matrix benda rotasinya saja utk normal
+	uniform mat4 matm; // matrikx benda utk pencahayaan
+	uniform vec3 lampos;
+	out vec3 lamposx;
+	uniform vec3 lamp1;
+	uniform vec3 lamp2;
+	out vec3 lampx1;
+	out vec3 lampx2;
+	in vec2 koordinat_texture;
+	out vec2 koordinat_texture_interp;
+	void main()
+		{
+		gl_Position = matx*koordinat_vertex;	 // matrix semua termasuk kamera
+		
+		posgrad = matm*koordinat_vertex; // transformasi vertex 
+		//normgrad = matn*normal_vertex;   // transformasi normal (tidak terpengarus scaling/translation)
+		normgrad = normal_vertex; // matn masih salah?
+		lamposx=lampos;
+		lampx1=lamp1;
+		lampx2=lamp1;
+		koordinat_texture_interp=koordinat_texture;
+		}
+`;
+
+fs_text=`#version 300 es
+	precision mediump float;
+	in vec4 normgrad;
+	in vec4 posgrad;
+	in vec3 lamposx;
+	in vec3 lampx1;
+	in vec3 lampx2;
+	out vec4 warna;
+	uniform vec4 wlampos;
+	uniform vec4 wlamp1;
+	uniform vec4 wlamp2;
+	in vec2 koordinat_texture_interp;
+	uniform sampler2D tekstur_data;
+	void main()
+		{
+		warna = texture(tekstur_data, koordinat_texture_interp) *(wlampos*clamp(dot(normalize(lamposx-posgrad.xyz),normalize(normgrad.xyz)), 0.0, 1.0)) + texture(tekstur_data, koordinat_texture_interp) * (wlamp1*clamp(dot(normalize(lampx1-posgrad.xyz),normalize(normgrad.xyz)), 0.0, 1.0)) + texture(tekstur_data, koordinat_texture_interp) * (wlamp2*clamp(dot(normalize(lampx2-posgrad.xyz),normalize(normgrad.xyz)), 0.0, 1.0));
+		warna.w = 1.0;
+		}
+`;
+</script>
+<!-- obj -->
+<script id="ventilator" src='./ceiling_fan/ventilator.js'>
+	//mat4.rotateX(matgab, matgab, -Math.PI*90/180.0);
+</script>
+<script id="room" src='./bedroom/room.js'></script>
+<script id="toy_car" src='./toy_car/toy_car.js'>
+	//mat4.scale(matgab, matgab, [0.01,0.01,0.01]);
+</script>
+
+<!-- albedo -->
+<script id="toy_car_albedo" src='./toy_car/toy_car_albedo.js'></script>
+<script id="ventilator_albedo" src='./ceiling_fan/ventilator_albedo.js'></script>
+<script id="room_albedo" src='./bedroom/room_albedo.js'></script>	
+
+<script>
+
+	objStr = room;
+	
+	layar = document.getElementById('layar');
+	gl = layar.getContext('webgl2');
+	
+	// persiapan
+	gl.clearColor(0.3, 0.3, 0.3, 1.0);
+	gl.clear(gl.COLOR_BUFFER_BIT);
+	
+	// urus VS
+	vs = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(vs, vs_text);
+	gl.compileShader(vs);
+	
+	// urus FS
+	fs = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(fs, fs_text);
+	gl.compileShader(fs);
+	
+	// link program
+	prog = gl.createProgram();
+	gl.attachShader(prog, vs);
+	gl.attachShader(prog, fs);
+	gl.linkProgram(prog);
+	gl.useProgram(prog);
+		
+	//load mesh
+	mesh = new OBJ.Mesh(room)
+	OBJ.initMeshBuffers(gl, mesh);
+	meshCar = new OBJ.Mesh(toyCar)
+	OBJ.initMeshBuffers(gl, meshCar);
+	meshFan = new OBJ.Mesh(ventilator)
+	OBJ.initMeshBuffers(gl, meshFan);
+	
+	function loadTexture(img)
+	{
+		// urusan texture data gambarnya
+		gltex = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, gltex);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+		
+		return gltex;
+	}
+
+	function loadTextureData(idx,pipa){
+		texloc = gl.getUniformLocation(prog, pipa);
+		gl.uniform1i(texloc, idx);
+	}
+
+	loadTextureData(0,'tekstur_data')
+	
+	//fungsi utk random warna sebanyak input
+	// function randomColor(num){
+	// 	array = []
+	// 	for (let i = 0; i < num; i++) {
+	// 		r = 1//Math.random();
+	// 		g = 1//Math.random();
+	// 		b = 1//Math.random();
+	// 		array.push(r)
+	// 		array.push(g)
+	// 		array.push(b)
+	// 	}
+	// 	return array
+	// }
+
+	//set warna lampu
+	function setUniformColor(r,g,b,pipa){
+        pipawarna = gl.getUniformLocation(prog,pipa);
+        gl.uniform4f(pipawarna,r,g,b,1);
+    }
+	intes = 0.75
+	setUniformColor(1*intes,1*intes,1*intes,'wlamp1')
+	setUniformColor(1*intes,1*intes,1*intes,'wlamp2')
+
+
+	function loadMeshBuffer(meshBuffer,pipa){
+		attribut = gl.getAttribLocation(prog, pipa);
+		gl.enableVertexAttribArray(attribut);
+		gl.bindBuffer(gl.ARRAY_BUFFER, meshBuffer);
+		gl.vertexAttribPointer(attribut, meshBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		//mesh sendiri sudah buffer dgn datanya, jadi gk perlu pake bufferData
+	}
+
+	function loadMeshElement(meshBuffer){
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, meshBuffer);
+	}
+
+	function setLight(x,y,z,pipa_lampu){
+		lamposloc=gl.getUniformLocation(prog,pipa_lampu);
+		gl.uniform3f(lamposloc, x,y,z); 
+	}
+
+	function setMeshColor(meshBuffer,pipa){
+		warna = new Float32Array(randomColor(meshBuffer.numItems))
+		buffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		attribut = gl.getAttribLocation(prog, pipa);
+		gl.enableVertexAttribArray(attribut);
+		gl.vertexAttribPointer(attribut, 3, gl.FLOAT, true, 0, 0);
+		gl.bufferData(gl.ARRAY_BUFFER, warna, gl.STATIC_DRAW);
+	}
+
+
+	
+	matx=gl.getUniformLocation(prog, 'matx');
+	matn=gl.getUniformLocation(prog, 'matn');
+	matm=gl.getUniformLocation(prog, 'matm');
+	
+	
+	const {mat4} = glMatrix;
+	matgab = mat4.create();
+	matgabtotalsemua = mat4.create();
+	proyeksi = mat4.create();
+	lookat = mat4.create();
+	kamera = mat4.create();
+	
+	matnorm = mat4.create();
+	
+	gl.enable(gl.DEPTH_TEST);
+
+
+	//urusan camera drag
+	sudutc = 0;
+	posX = 0;
+	posY = 0;
+	updown = 20;
+	jarak = 23;
+	
+	//urusan fan
+	sudut = 0;
+	fanGerak = false;
+    
+	//urusan toycar
+	carGerak = false;
+	gerak = 0;
+	kecepatan = -0.3;
+	batas = 12;
+
+	var gltex0,gltex1,gltex2;
+	//toy car
+	img0 = new Image(); 
+	img0.onload=function() { gltex0=loadTexture(img0);}; 
+	img0.src=car_albedo_map;
+
+	//fan
+	img1 = new Image(); 
+	img1.onload=function() { gltex1=loadTexture(img1);}; 
+	img1.src=ventilator_albedo_map;
+
+	//room
+	img2 = new Image(); 
+	img2.onload=function() { gltex2=loadTexture(img2);}; 
+	img2.src=room_albedo_map;
+	function anim(){
+		jarak = parseInt(document.getElementById('jarak').value);
+		updown = parseInt(document.getElementById('updown').value);
+		cameraSpeed = parseInt(document.getElementById('camspd').value);
+		sudutc %= 360;
+        radc = sudutc/360 * 2 * Math.PI;
+		mat4.identity(kamera);
+		mat4.lookAt(lookat,[jarak*Math.cos(radc),updown,jarak*Math.sin(radc)],[0,0,0],[0,1,0]);
+		//mat4.lookAt(lookat,[jarak,jarak,jarak],[0,0,0],[0,1,0]);
+		//mat4.ortho(proyeksi, -2,2, -2,2, 0, 100);
+		mat4.perspective(proyeksi, Math.PI*60/180, 1, 0.01, 10000);
+		mat4.mul(kamera, lookat, kamera);
+		mat4.mul(kamera, proyeksi, kamera);
+		camx = parseInt(document.getElementById('x').value)
+		camy = parseInt(document.getElementById('y').value)
+		camz = parseInt(document.getElementById('z').value)
+		
+		//set lampu
+		lamp = parseInt(document.getElementById('lamp').value);
+		setUniformColor(lamp,lamp,lamp,'wlampos')
+		setLight(camx,camy,camz,'lampos')
+		setLight(10,5.5,8,'lamp1')
+		setLight(0.5,2.5,-6.5,'lamp2')
+
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		//room
+		mat4.identity(matgab);
+		//matrix start
+		mat4.translate(matgab, matgab,[3,-0.5,3]);
+		mat4.scale(matgab, matgab, [0.25,0.25,0.25]);
+		//matrix end
+		mat4.invert(matnorm, matgab);    
+		mat4.transpose(matnorm, matnorm);  
+		gl.uniformMatrix4fv(matm, false, matgab);
+		mat4.mul(matgabtotalsemua, kamera, matgab);
+		gl.uniformMatrix4fv(matx, false, matgabtotalsemua);		
+		gl.uniformMatrix4fv(matn, false, matnorm);
+		//normal
+		loadMeshBuffer(mesh.normalBuffer,'normal_vertex')
+		// //warna
+		// setMeshColor(mesh.vertexBuffer,'warna_vertex')
+		//texture
+		loadMeshBuffer(mesh.textureBuffer,'koordinat_texture')
+		//vertex
+		loadMeshBuffer(mesh.vertexBuffer,'koordinat_vertex')
+		//elemen
+		loadMeshElement(mesh.indexBuffer)
+		gl.bindTexture(gl.TEXTURE_2D, gltex2);
+		gl.drawElements(gl.TRIANGLES, mesh.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0); //mesh mintae unsigned_short, yg lain bikin aneh bentuknya
+		
+		
+		//toy car
+		if(carGerak){
+			gerak += kecepatan;
+			if(gerak <= -batas || gerak >= 0){
+				kecepatan *= -1
+				carGerak = false;
+			} 
+		}
+		mat4.identity(matgab);
+		//matrix start
+		mat4.translate(matgab, matgab,[0,0,gerak]);
+		mat4.translate(matgab, matgab,[9,0.1,4]);
+		mat4.scale(matgab, matgab, [0.001,0.001,0.001]);
+		//matrix end //translate after scale
+		mat4.invert(matnorm, matgab);    
+		mat4.transpose(matnorm, matnorm);  
+		gl.uniformMatrix4fv(matm, false, matgab);
+		mat4.mul(matgabtotalsemua, kamera, matgab);
+		gl.uniformMatrix4fv(matx, false, matgabtotalsemua);		
+		gl.uniformMatrix4fv(matn, false, matnorm);
+		//normal
+		loadMeshBuffer(meshCar.normalBuffer,'normal_vertex')
+		// //warna
+		// setMeshColor(meshCar.vertexBuffer,'warna_vertex')
+		//texture
+		loadMeshBuffer(meshCar.textureBuffer,'koordinat_texture')
+		//vertex
+		loadMeshBuffer(meshCar.vertexBuffer,'koordinat_vertex')
+		//elemen
+		loadMeshElement(meshCar.indexBuffer)
+		gl.bindTexture(gl.TEXTURE_2D, gltex0);
+		gl.drawElements(gl.TRIANGLES, meshCar.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		
+
+		//fan
+		if(fanGerak) sudut += 1;
+		sudut %= 360;
+        rad = 2*Math.PI*sudut/180.0;
+		mat4.identity(matgab);
+		//matrix start
+		mat4.rotateY(matgab, matgab, rad);
+		mat4.translate(matgab, matgab,[0,16,0]);
+		mat4.rotateX(matgab, matgab, -Math.PI*90/180.0);
+		mat4.scale(matgab, matgab, [5,5,5]);
+		//matrix end
+		mat4.invert(matnorm, matgab);    
+		mat4.transpose(matnorm, matnorm);  
+		gl.uniformMatrix4fv(matm, false, matgab);
+		mat4.mul(matgabtotalsemua, kamera, matgab);
+		gl.uniformMatrix4fv(matx, false, matgabtotalsemua);		
+		gl.uniformMatrix4fv(matn, false, matnorm);
+		//normal
+		loadMeshBuffer(meshFan.normalBuffer,'normal_vertex')
+		// //warna
+		// setMeshColor(meshFan.vertexBuffer,'warna_vertex')
+		//texture
+		loadMeshBuffer(meshFan.textureBuffer,'koordinat_texture')
+		//vertex
+		loadMeshBuffer(meshFan.vertexBuffer,'koordinat_vertex')
+		//elemen
+		loadMeshElement(meshFan.indexBuffer)
+		gl.bindTexture(gl.TEXTURE_2D, gltex1);
+		gl.drawElements(gl.TRIANGLES, meshFan.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		
+		requestAnimationFrame(anim, layar);
+		}
+		anim(); 
+	
+</script>
+<script>
+	//camera
+	move = false
+	function canMove() { 
+		move = true
+	 }
+
+	 function noMove() {
+		 move = false
+	 }
+	function camera(event) { 
+		if(move){
+			if(posX < event.clientX){
+				sudutc+=cameraSpeed
+			}
+			else if(posX > event.clientX){
+				sudutc-=cameraSpeed
+			}
+
+			// if(posY < event.clientY){
+			// 	updown+=cameraSpeed
+			// }
+			// else if(posY > event.clientY){
+			// 	updown-=cameraSpeed
+			// }
+		}
+		posX = event.clientX
+		posY = event.clientY
+	 }
+
+	 //toycar
+	 function moveCar(){
+		 carGerak = true
+	 }
+
+	 //fan
+	 function moveFan(){
+		 if(fanGerak){
+			 fanGerak = false
+			 document.getElementById('btnFan').innerText = "Turn On Fan"
+		 }
+		 else{
+			 fanGerak = true
+			 document.getElementById('btnFan').innerText = "Turn Off Fan"
+		 }
+	 }
+
+</script>
+
+
+
+</body>
+</html>
