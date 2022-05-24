@@ -78,7 +78,7 @@ fs_text=`#version 300 es
 
 <script>
 
-	objStr = room;
+	//objStr = room;
 	
 	layar = document.getElementById('layar');
 	gl = layar.getContext('webgl2');
@@ -165,15 +165,15 @@ fs_text=`#version 300 es
 		gl.uniform3f(lamposloc, x,y,z); 
 	}
 
-	function setMeshColor(meshBuffer,pipa){
-		warna = new Float32Array(randomColor(meshBuffer.numItems))
-		buffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-		attribut = gl.getAttribLocation(prog, pipa);
-		gl.enableVertexAttribArray(attribut);
-		gl.vertexAttribPointer(attribut, 3, gl.FLOAT, true, 0, 0);
-		gl.bufferData(gl.ARRAY_BUFFER, warna, gl.STATIC_DRAW);
-	}
+	// function setMeshColor(meshBuffer,pipa){
+	// 	warna = new Float32Array(randomColor(meshBuffer.numItems))
+	// 	buffer = gl.createBuffer();
+	// 	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+	// 	attribut = gl.getAttribLocation(prog, pipa);
+	// 	gl.enableVertexAttribArray(attribut);
+	// 	gl.vertexAttribPointer(attribut, 3, gl.FLOAT, true, 0, 0);
+	// 	gl.bufferData(gl.ARRAY_BUFFER, warna, gl.STATIC_DRAW);
+	// }
 
 	
 
